@@ -1,118 +1,148 @@
-# PROMPT: here is the generated image, please improve it to match the original image that was provided. Please point out what changes you are making and why you are making them
+# PROMPT: use the python turtle library to redraw this (beach.jpg) scene. Try and make your representation as accurate as possible
 import turtle
-import random
-import math
+import colorsys
 
-# ——— Setup ———
+# ——— Helper functions ———
+
+def lerp(a, b, t):
+    """Linear interpolation between a and b."""
+    return a + (b - a) * t
+
+def color_lerp(c1, c2, t):
+    """Interpolate between two RGB colors (tuples of 0–1 floats)."""
+    return (lerp(c1[0], c2[0], t),
+            lerp(c1[1], c2[1], t),
+            lerp(c1[2], c2[2], t))
+
+def draw_gradient_rect(y1, y2, c1, c2, steps=100):
+    """Draw a vertical gradient between y1 and y2."""
+    height = y2 - y1
+    for i in range(steps):
+        t = i / (steps - 1)
+        c = color_lerp(c1, c2, t)
+        turtle.color(c)
+        turtle.penup()
+        turtle.goto(-screen_width/2, y1 + t * height)
+        turtle.pendown()
+        turtle.begin_fill()
+        turtle.goto(screen_width/2, y1 + t * height)
+        turtle.goto(screen_width/2, y1 + (t + 1/steps) * height)
+        turtle.goto(-screen_width/2, y1 + (t + 1/steps) * height)
+        turtle.goto(-screen_width/2, y1 + t * height)
+        turtle.end_fill()
+
+def draw_sun(x, y, radius, color):
+    turtle.penup()
+    turtle.goto(x, y - radius)
+    turtle.color(color)
+    turtle.begin_fill()
+    turtle.pendown()
+    turtle.circle(radius)
+    turtle.end_fill()
+
+def draw_palm_trunk(x, y, height, curve, thickness=5):
+    turtle.penup()
+    turtle.goto(x, y)
+    turtle.setheading(90 - curve)
+    turtle.pensize(thickness)
+    turtle.color("black")
+    turtle.pendown()
+    turtle.forward(height)
+
+def draw_palm_leaf(x, y, heading, length, spread, thickness=2):
+    """Draw one leaf as a curved line of small segments."""
+    turtle.penup()
+    turtle.goto(x, y)
+    turtle.setheading(heading)
+    turtle.pensize(thickness)
+    turtle.color("black")
+    turtle.pendown()
+    for i in range(int(length / 5)):
+        turtle.forward(5)
+        turtle.right(spread)
+
+def draw_palm(x, y, scale=1.0):
+    """Draw a simple palm tree silhouette."""
+    h = 100 * scale
+    curve = 15 * scale
+    draw_palm_trunk(x, y, h, curve, thickness=6*scale)
+    # Leaves
+    leaf_len = 80 * scale
+    for angle in (-60, -30, 0, 30, 60):
+        draw_palm_leaf(x, y + h, 90 + angle, leaf_len, -2)
+
+def draw_rock(x, y, size):
+    turtle.penup()
+    turtle.goto(x, y)
+    turtle.color("black")
+    turtle.begin_fill()
+    turtle.pendown()
+    # approximate a rounded polygon
+    sides = 6
+    for _ in range(sides):
+        turtle.forward(size)
+        turtle.left(360 / sides + 10)
+    turtle.end_fill()
+
+# ——— Setup screen ———
+
 screen = turtle.Screen()
-screen.title("Sunset Beach Scene (Improved)")
-screen.setup(width=800, height=600)
-turtle.colormode(255)
-artist = turtle.Turtle()
-artist.speed(0)
-artist.hideturtle()
+screen_width, screen_height = 800, 600
+screen.setup(screen_width, screen_height)
+screen.title("Sunset Beach — Turtle")
 
-# ——— Helpers ———
-def draw_rect(x, y, w, h, color):
-    artist.penup(); artist.goto(x, y); artist.pendown()
-    artist.color(color); artist.begin_fill()
-    for _ in range(2):
-        artist.forward(w); artist.right(90)
-        artist.forward(h); artist.right(90)
-    artist.end_fill()
+# Use colormode 1.0 for easy interpolation
+turtle.colormode(1.0)
+turtle.speed(0)
+turtle.hideturtle()
+turtle.tracer(False)
 
-def lerp(color1, color2, t):
-    return tuple(int(color1[i] + (color2[i]-color1[i])*t) for i in range(3))
+# ——— Draw sky gradient ———
 
-# ——— 1) Sky gradient ———
-def draw_sky():
-    top, mid, bot = (138,43,226), (255,140,0), (255,215,0)
-    # span from y=300 down to y=100
-    for i in range(200):
-        t = i/199
-        if t < 0.5:
-            c = lerp(top, mid, t*2)
-        else:
-            c = lerp(mid, bot, (t-0.5)*2)
-        draw_rect(-400, 300- (i*2), 800, 2, c)
+# Top sky: violet → pink
+draw_gradient_rect(screen_height/2, 50,
+                   colorsys.hsv_to_rgb(0.75, 0.4, 0.6),
+                   colorsys.hsv_to_rgb(0.02, 0.6, 0.95),
+                   steps=120)
 
-# ——— 2) Ocean + horizon ———
-def draw_ocean():
-    deep, shallow = (20,20,80), (70,130,180)
-    for i in range(120):
-        t = i/119
-        c = lerp(deep, shallow, t)
-        draw_rect(-400, 100- i*2, 800, 2, c)
-    # thin darker horizon line
-    draw_rect(-400, 100, 800, 2, (10,10,50))
+# Horizon band: pink → orange
+draw_gradient_rect(50, 0,
+                   colorsys.hsv_to_rgb(0.02, 0.6, 0.95),
+                   colorsys.hsv_to_rgb(0.10, 0.8, 0.98),
+                   steps=80)
 
-# ——— 3) Sand with wet-sand highlight ———
-def draw_sand():
-    sand = (238,214,175)
-    wet = (220,190,150)
-    draw_rect(-400, -200, 800, 300, sand)
-    # wet sand band
-    draw_rect(-400, -80, 800, 40, wet)
+# ——— Draw sun ———
 
-# ——— 4) Sun + reflection ———
-def draw_sun_and_reflection():
-    # sun
-    artist.penup(); artist.goto(0, 60); artist.pendown()
-    artist.color((255,223,0)); artist.begin_fill(); artist.circle(40); artist.end_fill()
-    # reflection: a vertical fading oval
-    for i in range(20):
-        alpha = 1 - i/19
-        col = (int(255*alpha+shallow[0]*(1-alpha)),
-               int(223*alpha+shallow[1]*(1-alpha)),
-               int(0*alpha + shallow[2]*(1-alpha)))
-        draw_rect(-40, 60- i*5, 80, 5, col)
+draw_sun(0, 0, 40, colorsys.hsv_to_rgb(0.10, 0.9, 1.0))
 
-# ——— 5) Irregular rocks ———
-def draw_rock(x, y, scale):
-    verts = random.randint(5,8)
-    angles = [random.uniform(0,360) for _ in range(verts)]
-    angles.sort()
-    artist.penup(); artist.goto(x + math.cos(math.radians(angles[0]))*scale,
-                               y + math.sin(math.radians(angles[0]))*scale)
-    artist.pendown(); artist.color((70,70,70)); artist.begin_fill()
-    for a in angles[1:]:
-        artist.goto(x + math.cos(math.radians(a))*scale*random.uniform(0.8,1.2),
-                     y + math.sin(math.radians(a))*scale*random.uniform(0.8,1.2))
-    artist.end_fill()
+# ——— Draw water gradient ———
 
-# ——— 6) More natural palms ———
-def draw_palm(x, y, height, bend):
-    # trunk as two segments to simulate curve
-    artist.penup(); artist.goto(x, y); artist.pendown()
-    artist.color((101,67,33)); artist.pensize(8)
-    artist.setheading(90 + bend/2)
-    artist.forward(height*0.6)
-    artist.setheading(90 + bend)
-    artist.forward(height*0.4)
-    top = artist.position()
-    # fronds: more, varied lengths
-    artist.color((34,139,34)); artist.pensize(2)
-    for angle in range(-75, 76, 25):
-        length = random.uniform(50,80)
-        artist.penup(); artist.goto(top)
-        artist.setheading(angle + bend + 90); artist.pendown()
-        artist.forward(length)
+# Just below horizon down to y = -100
+draw_gradient_rect(0, -100,
+                   colorsys.hsv_to_rgb(0.10, 0.7, 0.9),
+                   colorsys.hsv_to_rgb(0.10, 0.3, 0.6),
+                   steps=100)
 
-# ——— Compose improved scene ———
-draw_sky()
-draw_ocean()
-draw_sand()
-# capture shallow for reflection blend
-shallow = (70,130,180)
-draw_sun_and_reflection()
+# ——— Draw sand ———
 
-# rocks
-for _ in range(7):
-    draw_rock(random.randint(-300,150), random.randint(-150,-50), random.randint(15,40))
+draw_gradient_rect(-100, -300,
+                   colorsys.hsv_to_rgb(0.10, 0.5, 0.8),
+                   colorsys.hsv_to_rgb(0.10, 0.6, 0.9),
+                   steps=80)
 
-# palms
-palms = [(-160,-180,120,-20), (-80,-170,140,-10), (140,-180,130,10), (180,-190,150,20)]
-for x,y,h,b in palms:
-    draw_palm(x, y, h, b)
+# ——— Draw palms ———
 
+# Cluster on right
+for offset, sc in [(-50, 1.2), (0, 1.0), (30, 0.9), (60, 0.7)]:
+    draw_palm(200 + offset, -100, scale=sc)
+
+# A single one on the left
+draw_palm(-250, -80, scale=0.8)
+
+# ——— Draw rocks on shore ———
+
+for x, y, s in [(-100, -120, 30), (20, -140, 40), (80, -130, 25), (150, -110, 35)]:
+    draw_rock(x, y, s)
+
+turtle.update()
 turtle.done()
